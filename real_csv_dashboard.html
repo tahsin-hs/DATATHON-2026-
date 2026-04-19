@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ViralCheck — CSV-backed Dashboard</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+  <style>
+    :root{
+      --bg:#0b0b0d; --panel:#17181c; --panel2:#1f2127; --line:#2d313a;
+      --text:#f4f6fb; --muted:#a6adbb; --accent:#ff453a; --accent-soft:rgba(255,69,58,.12);
+      --blue:#4da3ff; --green:#42d392; --amber:#ffd166; --radius:18px;
+      --shadow:0 18px 50px rgba(0,0,0,.28);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:linear-gradient(180deg,#0b0b0d 0%, #101115 100%);color:var(--text)}
+    .wrap{max-width:1180px;margin:0 auto;padding:24px}
+    .hero{padding:20px 0 10px}
+    .eyebrow{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);font-weight:700}
+    h1{font-size:clamp(32px,4.6vw,54px);line-height:1.04;margin:10px 0 12px}
+    .sub{max-width:760px;color:var(--muted);font-size:16px;line-height:1.7}
+    .notice{margin-top:18px;padding:14px 16px;border:1px solid rgba(255,209,102,.35);background:rgba(255,209,102,.08);border-radius:14px;color:#ffe9a6;font-size:14px;line-height:1.55}
+    .toolbar{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin:28px 0 20px}
+    .country-grid{display:flex;flex-wrap:wrap;gap:10px}
+    .country-btn{border:1px solid var(--line);background:var(--panel);color:var(--muted);padding:10px 14px;border-radius:12px;cursor:pointer;font-weight:600;transition:.18s ease}
+    .country-btn:hover{transform:translateY(-1px);border-color:#505868;color:var(--text)}
+    .country-btn.active{background:var(--accent-soft);border-color:rgba(255,69,58,.55);color:var(--text)}
+    .meta{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:22px}
+    .chip{padding:8px 12px;border:1px solid var(--line);border-radius:999px;background:var(--panel);font-size:13px;color:var(--muted)}
+    .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin:18px 0 24px}
+    .card{background:linear-gradient(180deg,var(--panel) 0%, var(--panel2) 100%);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
+    .stat{padding:18px}
+    .label{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:8px}
+    .value{font-size:30px;font-weight:800;letter-spacing:-.03em}
+    .small{font-size:13px;color:var(--muted);margin-top:5px}
+    .grid{display:grid;grid-template-columns:1.2fr .8fr;gap:16px}
+    .panel{padding:18px}
+    .panel h2{margin:0 0 4px;font-size:18px}
+    .panel p{margin:0 0 14px;color:var(--muted);font-size:14px;line-height:1.55}
+    .chart-wrap{position:relative;height:320px}
+    .chart-wrap.short{height:260px}
+    .chart-wrap.tall{height:380px}
+    .wide{grid-column:1/-1}
+    table{width:100%;border-collapse:collapse}
+    th,td{padding:10px 8px;border-bottom:1px solid rgba(255,255,255,.06);font-size:14px;text-align:left}
+    th{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+    td:last-child, th:last-child{text-align:right}
+    .status{padding:20px;border:1px dashed #404654;border-radius:16px;background:#13151a;color:var(--muted);line-height:1.65}
+    .footer-note{margin-top:16px;color:var(--muted);font-size:13px}
+    @media (max-width: 980px){
+      .stats{grid-template-columns:repeat(2,1fr)}
+      .grid{grid-template-columns:1fr}
+    }
+    @media (max-width: 640px){
+      .wrap{padding:18px}
+      .stats{grid-template-columns:1fr}
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="hero">
+      <div class="eyebrow">CSV-backed prototype</div>
+      <h1>ViralCheck dashboard built from the raw trending files</h1>
+      <p class="sub">This version loads the uploaded country CSVs directly in the browser, computes insights live, and redraws the charts from the selected dataset instead of relying on a precomputed JavaScript object.</p>
+      <div class="notice" id="fileNotice" style="display:none;">
+        This page is being opened as a local file. Browsers often block CSV loading from <code>file://</code>. Run a simple local server in the same folder, such as <code>python -m http.server 8000</code>, then open <code>http://localhost:8000/real_csv_dashboard.html</code>.
+      </div>
+    </section>
+
+    <div class="toolbar">
+      <div class="country-grid" id="countryGrid"></div>
+    </div>
+
+    <div class="meta" id="meta"></div>
+
+    <div class="stats" id="stats"></div>
+
+    <div class="grid">
+      <section class="card panel">
+        <h2>Category performance</h2>
+        <p>Average views by category for the selected country.</p>
+        <div class="chart-wrap" id="categoryWrap"><canvas id="categoryChart"></canvas></div>
+      </section>
+
+      <section class="card panel">
+        <h2>Publish hour performance</h2>
+        <p>Average views grouped by video publish hour (UTC extracted from <code>publish_time</code>).</p>
+        <div class="chart-wrap short"><canvas id="hourChart"></canvas></div>
+      </section>
+
+      <section class="card panel wide">
+        <h2>Title length vs average views</h2>
+        <p>Word-count buckets computed directly from each title.</p>
+        <div class="chart-wrap short"><canvas id="titleChart"></canvas></div>
+      </section>
+
+      <section class="card panel wide">
+        <h2>Top tags by average views</h2>
+        <p>Tags are split from the raw <code>tags</code> column, normalised to lowercase, and ranked using a minimum sample threshold.</p>
+        <div id="tagsTable"></div>
+      </section>
+    </div>
+
+    <div class="footer-note">Files expected in the same folder: US, GB, CA, DE, FR, IN, JP, KR, MX, BR, RU trending CSVs.</div>
+  </div>
+
+<script>
+const COUNTRY_FILES = {
+  US: 'US_Trending.csv', GB: 'GB_Trending.csv', CA: 'CA_Trending.csv', DE: 'DE_Trending.csv',
+  FR: 'FR_Trending.csv', IN: 'IN_Trending.csv', JP: 'JP_Trending.csv', KR: 'KR_Trending.csv',
+  MX: 'MX_Trending.csv', BR: 'BR_Trending.csv', RU: 'RU_Trending.csv'
+};
+
+const CATEGORY_MAP = {
+  1:'Film & Animation', 2:'Autos & Vehicles', 10:'Music', 15:'Pets & Animals', 17:'Sports',
+  19:'Travel & Events', 20:'Gaming', 22:'People & Blogs', 23:'Comedy', 24:'Entertainment',
+  25:'News & Politics', 26:'Howto & Style', 27:'Education', 28:'Science & Technology', 29:'Nonprofits & Activism'
+};
+
+const cache = new Map();
+const charts = {};
+let currentCountry = null;
+
+function formatNumber(value){
+  return new Intl.NumberFormat('en', {maximumFractionDigits: 0}).format(value || 0);
+}
+function formatCompact(value){
+  return new Intl.NumberFormat('en', {notation:'compact', maximumFractionDigits:1}).format(value || 0);
+}
+function average(arr){
+  const valid = arr.filter(v => Number.isFinite(v));
+  return valid.length ? valid.reduce((a,b)=>a+b,0)/valid.length : 0;
+}
+function destroyChart(key){ if (charts[key]) charts[key].destroy(); }
+
+function buildCountryButtons(){
+  const grid = document.getElementById('countryGrid');
+  grid.innerHTML = Object.keys(COUNTRY_FILES).map(code =>
+    `<button class="country-btn" data-code="${code}">${code}</button>`
+  ).join('');
+  grid.addEventListener('click', (e) => {
+    const btn = e.target.closest('.country-btn');
+    if (!btn) return;
+    selectCountry(btn.dataset.code);
+  });
+}
+
+async function loadCsv(country){
+  if (cache.has(country)) return cache.get(country);
+  const file = COUNTRY_FILES[country];
+  const response = await fetch(file);
+  if (!response.ok) throw new Error(`Could not load ${file}`);
+  const text = await response.text();
+  const parsed = Papa.parse(text, {header:true, skipEmptyLines:true, dynamicTyping:true});
+  if (parsed.errors?.length) console.warn(parsed.errors);
+  cache.set(country, parsed.data);
+  return parsed.data;
+}
+
+function computeMetrics(rows){
+  const cleaned = rows.filter(r => r && r.title && Number.isFinite(+r.views));
+  const uniqueVideos = new Set(cleaned.map(r => r.video_id)).size;
+  const views = cleaned.map(r => +r.views || 0);
+  const likes = cleaned.map(r => +r.likes || 0);
+  const comments = cleaned.map(r => +r.comments || 0);
+  const likeRatios = cleaned.map(r => {
+    const v = +r.views || 0, l = +r.likes || 0;
+    return v > 0 ? (l / v) * 100 : null;
+  }).filter(v => v !== null);
+
+  const categories = new Map();
+  const publishHours = Array.from({length:24}, (_,h)=>({hour:h, views:[], count:0}));
+  const titleLengths = new Map();
+  const tagMap = new Map();
+
+  cleaned.forEach(row => {
+    const views = +row.views || 0;
+    const catId = +row.category_id;
+    const cat = CATEGORY_MAP[catId] || `Category ${catId}`;
+    if (!categories.has(cat)) categories.set(cat, {views:[], count:0});
+    categories.get(cat).views.push(views);
+    categories.get(cat).count += 1;
+
+    const titleLen = String(row.title).trim().split(/\s+/).filter(Boolean).length;
+    if (!titleLengths.has(titleLen)) titleLengths.set(titleLen, {views:[], count:0});
+    titleLengths.get(titleLen).views.push(views);
+    titleLengths.get(titleLen).count += 1;
+
+    const date = new Date(row.publish_time);
+    if (!Number.isNaN(date.getTime())) {
+      const h = date.getUTCHours();
+      publishHours[h].views.push(views);
+      publishHours[h].count += 1;
+    }
+
+    const rawTags = String(row.tags || '').trim();
+    if (rawTags && rawTags !== '[none]') {
+      rawTags.split('|')
+        .map(t => t.trim().toLowerCase())
+        .filter(Boolean)
+        .forEach(tag => {
+          if (!tagMap.has(tag)) tagMap.set(tag, {views:[], count:0});
+          tagMap.get(tag).views.push(views);
+          tagMap.get(tag).count += 1;
+        });
+    }
+  });
+
+  const categorySummary = [...categories.entries()]
+    .map(([category, data]) => ({category, avgViews: average(data.views), count: data.count}))
+    .sort((a,b) => b.avgViews - a.avgViews)
+    .slice(0, 10);
+
+  const hourSummary = publishHours.map(d => ({hour:d.hour, avgViews: average(d.views), count:d.count}));
+
+  const titleSummary = [...titleLengths.entries()]
+    .map(([length, data]) => ({length:+length, avgViews: average(data.views), count:data.count}))
+    .filter(d => d.count >= 20)
+    .sort((a,b) => a.length - b.length)
+    .slice(0, 20);
+
+  const topTags = [...tagMap.entries()]
+    .map(([tag, data]) => ({tag, avgViews: average(data.views), count:data.count}))
+    .filter(d => d.count >= 3)
+    .sort((a,b) => b.avgViews - a.avgViews)
+    .slice(0, 12);
+
+  return {
+    rowCount: cleaned.length,
+    uniqueVideos,
+    avgViews: average(views),
+    avgLikes: average(likes),
+    avgComments: average(comments),
+    avgLikeRatio: average(likeRatios),
+    categories: categorySummary,
+    hours: hourSummary,
+    titleLengths: titleSummary,
+    topTags
+  };
+}
+
+function renderStats(summary){
+  const stats = document.getElementById('stats');
+  stats.innerHTML = `
+    <div class="card stat"><div class="label">Trending snapshots</div><div class="value">${formatNumber(summary.rowCount)}</div><div class="small">Raw rows loaded from CSV</div></div>
+    <div class="card stat"><div class="label">Unique videos</div><div class="value">${formatNumber(summary.uniqueVideos)}</div><div class="small">Distinct <code>video_id</code> count</div></div>
+    <div class="card stat"><div class="label">Average views</div><div class="value">${formatCompact(summary.avgViews)}</div><div class="small">Mean of <code>views</code></div></div>
+    <div class="card stat"><div class="label">Average likes</div><div class="value">${formatCompact(summary.avgLikes)}</div><div class="small">Mean of <code>likes</code></div></div>
+  `;
+}
+
+function renderMeta(summary){
+  document.getElementById('meta').innerHTML = `
+    <div class="chip">Country: <strong>${currentCountry}</strong></div>
+    <div class="chip">Avg comments: <strong>${formatCompact(summary.avgComments)}</strong></div>
+    <div class="chip">Avg like ratio: <strong>${summary.avgLikeRatio.toFixed(2)}%</strong></div>
+    <div class="chip">Charts computed live from raw CSV</div>
+  `;
+}
+
+function renderCategoryChart(summary){
+  destroyChart('category');
+  charts.category = new Chart(document.getElementById('categoryChart'), {
+    type:'bar',
+    data:{
+      labels: summary.categories.map(d => d.category),
+      datasets:[{label:'Average views', data: summary.categories.map(d => Math.round(d.avgViews)), borderWidth:0, borderRadius:8}]
+    },
+    options:{responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{x:{ticks:{color:'#a6adbb'}}, y:{ticks:{color:'#a6adbb'}}}}
+  });
+}
+
+function renderHourChart(summary){
+  destroyChart('hour');
+  charts.hour = new Chart(document.getElementById('hourChart'), {
+    type:'line',
+    data:{
+      labels: summary.hours.map(d => `${String(d.hour).padStart(2,'0')}:00`),
+      datasets:[{label:'Average views', data: summary.hours.map(d => Math.round(d.avgViews)), tension:.3, fill:false, pointRadius:2}]
+    },
+    options:{responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{x:{ticks:{color:'#a6adbb', maxRotation:0, autoSkip:true}}, y:{ticks:{color:'#a6adbb'}}}}
+  });
+}
+
+function renderTitleChart(summary){
+  destroyChart('title');
+  charts.title = new Chart(document.getElementById('titleChart'), {
+    type:'line',
+    data:{
+      labels: summary.titleLengths.map(d => d.length),
+      datasets:[{label:'Average views', data: summary.titleLengths.map(d => Math.round(d.avgViews)), tension:.28, pointRadius:3}]
+    },
+    options:{responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{x:{title:{display:true,text:'Title length (words)'}, ticks:{color:'#a6adbb'}}, y:{ticks:{color:'#a6adbb'}}}}
+  });
+}
+
+function renderTagsTable(summary){
+  const root = document.getElementById('tagsTable');
+  if (!summary.topTags.length) {
+    root.innerHTML = `<div class="status">No tags met the minimum frequency threshold in this dataset.</div>`;
+    return;
+  }
+  root.innerHTML = `
+    <table>
+      <thead><tr><th>Tag</th><th>Sample count</th><th>Average views</th></tr></thead>
+      <tbody>
+        ${summary.topTags.map(tag => `
+          <tr>
+            <td>${escapeHtml(tag.tag)}</td>
+            <td>${formatNumber(tag.count)}</td>
+            <td>${formatCompact(tag.avgViews)}</td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+function escapeHtml(value){
+  return String(value)
+    .replaceAll('&','&amp;')
+    .replaceAll('<','&lt;')
+    .replaceAll('>','&gt;')
+    .replaceAll('"','&quot;')
+    .replaceAll("'",'&#039;');
+}
+
+async function selectCountry(country){
+  currentCountry = country;
+  [...document.querySelectorAll('.country-btn')].forEach(btn => btn.classList.toggle('active', btn.dataset.code === country));
+  document.getElementById('stats').innerHTML = `<div class="status" style="grid-column:1/-1">Loading ${country} CSV and recomputing metrics…</div>`;
+  try {
+    const rows = await loadCsv(country);
+    const summary = computeMetrics(rows);
+    renderMeta(summary);
+    renderStats(summary);
+    renderCategoryChart(summary);
+    renderHourChart(summary);
+    renderTitleChart(summary);
+    renderTagsTable(summary);
+  } catch (error) {
+    document.getElementById('stats').innerHTML = `<div class="status" style="grid-column:1/-1"><strong>Could not load ${country}.</strong><br>${escapeHtml(error.message)}<br><br>Make sure the CSV files are in the same folder as this HTML and that you are serving the folder through a local web server.</div>`;
+  }
+}
+
+function init(){
+  buildCountryButtons();
+  if (location.protocol === 'file:') document.getElementById('fileNotice').style.display = 'block';
+  selectCountry('US');
+}
+
+init();
+</script>
+</body>
+</html>

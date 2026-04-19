@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Viral Check — Insights Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&family=DM+Mono:wght@400;500&display=swap');
+:root{
+  --bg:#0a0a0a;--surface:#141414;--surface2:#1e1e1e;--surface3:#252525;
+  --border:#2a2a2a;--border2:#333;--text:#f0f0f0;--text2:#aaa;--text3:#666;
+  --accent:#ff3b30;--accent2:#ff6b35;--blue:#0a84ff;--green:#30d158;
+  --amber:#ffd60a;--purple:#bf5af2;--teal:#5ac8fa;
+  --font:'DM Sans',system-ui,sans-serif;--mono:'DM Mono',monospace;
+  --ease:cubic-bezier(.16,1,.3,1);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:100vh;overflow-x:hidden}
+
+/* ── NAV ── */
+nav{position:sticky;top:0;z-index:100;background:rgba(10,10,10,.85);backdrop-filter:blur(20px);border-bottom:1px solid var(--border);padding:0 2rem;display:flex;align-items:center;height:60px;gap:1.5rem}
+.nav-logo{display:flex;align-items:center;gap:10px;text-decoration:none}
+.nav-logo-box{width:32px;height:32px;background:var(--accent);border-radius:7px;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:14px;color:#fff}
+.nav-brand{font-size:17px;font-weight:600;color:var(--text);letter-spacing:-0.3px}
+.nav-brand span{color:var(--accent)}
+.nav-sep{width:1px;height:20px;background:var(--border)}
+.nav-title{font-size:13px;color:var(--text3);font-weight:400}
+.nav-link{margin-left:auto;text-decoration:none;font-size:13px;color:var(--text2);padding:6px 14px;border:1px solid var(--border2);border-radius:7px;transition:all .2s;white-space:nowrap}
+.nav-link:hover{color:var(--text);border-color:var(--text3)}
+
+/* ── HERO ── */
+.hero{padding:4rem 2rem 2rem;max-width:1100px;margin:0 auto;animation:fadeUp .6s var(--ease) both}
+.hero-eyebrow{font-size:12px;font-weight:500;letter-spacing:1.5px;text-transform:uppercase;color:var(--accent);margin-bottom:1rem}
+.hero h1{font-size:clamp(32px,5vw,52px);font-weight:600;letter-spacing:-1.5px;line-height:1.1;margin-bottom:1rem}
+.hero h1 span{color:var(--accent)}
+.hero p{font-size:16px;color:var(--text2);max-width:560px;line-height:1.7}
+
+/* ── COUNTRY SELECTOR ── */
+.country-section{max-width:1100px;margin:2rem auto;padding:0 2rem;animation:fadeUp .6s var(--ease) .1s both}
+.country-label{font-size:12px;font-weight:500;text-transform:uppercase;letter-spacing:1px;color:var(--text3);margin-bottom:12px}
+.country-grid{display:flex;flex-wrap:wrap;gap:8px}
+.country-btn{
+  display:flex;align-items:center;gap:8px;padding:9px 16px;border-radius:10px;
+  border:1px solid var(--border2);background:var(--surface);color:var(--text2);
+  cursor:pointer;font-family:var(--font);font-size:13px;font-weight:500;
+  transition:all .2s var(--ease);position:relative;overflow:hidden;
+}
+.country-btn::before{content:'';position:absolute;inset:0;background:var(--accent);opacity:0;transition:opacity .2s}
+.country-btn:hover{border-color:var(--accent);color:var(--text);transform:translateY(-1px)}
+.country-btn.active{border-color:var(--accent);background:rgba(255,59,48,.12);color:var(--text)}
+.country-flag{font-size:18px;line-height:1}
+
+/* ── STAT CARDS ── */
+.stats-row{max-width:1100px;margin:0 auto 2rem;padding:0 2rem;display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;animation:fadeUp .6s var(--ease) .15s both}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:1.25rem;transition:all .25s var(--ease);cursor:default}
+.stat-card:hover{border-color:var(--border2);transform:translateY(-2px);background:var(--surface2)}
+.stat-icon{font-size:20px;margin-bottom:10px}
+.stat-label{font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:0.8px;font-weight:500;margin-bottom:6px}
+.stat-val{font-size:26px;font-weight:500;letter-spacing:-0.8px;color:var(--text)}
+.stat-sub{font-size:12px;color:var(--text3);margin-top:4px}
+
+/* ── CHARTS GRID ── */
+.charts-wrap{max-width:1100px;margin:0 auto;padding:0 2rem 4rem;display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.chart-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:1.5rem;transition:border-color .25s;animation:fadeUp .5s var(--ease) both}
+.chart-card:hover{border-color:var(--border2)}
+.chart-card.wide{grid-column:1/-1}
+.chart-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:1.25rem;gap:1rem}
+.chart-title{font-size:14px;font-weight:500;color:var(--text);letter-spacing:-0.2px}
+.chart-subtitle{font-size:12px;color:var(--text3);margin-top:3px;line-height:1.5}
+.chart-badge{font-size:11px;padding:3px 9px;border-radius:20px;font-family:var(--mono);white-space:nowrap;flex-shrink:0}
+.badge-blue{background:rgba(10,132,255,.15);color:var(--blue);border:1px solid rgba(10,132,255,.3)}
+.badge-green{background:rgba(48,209,88,.12);color:var(--green);border:1px solid rgba(48,209,88,.25)}
+.badge-amber{background:rgba(255,214,10,.1);color:var(--amber);border:1px solid rgba(255,214,10,.25)}
+.badge-purple{background:rgba(191,90,242,.12);color:var(--purple);border:1px solid rgba(191,90,242,.25)}
+.badge-red{background:rgba(255,59,48,.12);color:var(--accent);border:1px solid rgba(255,59,48,.25)}
+.chart-canvas-wrap{position:relative;width:100%}
+.chart-canvas-wrap.h200{height:200px}
+.chart-canvas-wrap.h240{height:240px}
+.chart-canvas-wrap.h280{height:280px}
+.chart-canvas-wrap.h320{height:320px}
+
+/* ── CATEGORY TABLE ── */
+.cat-table{width:100%;border-collapse:collapse;font-size:13px}
+.cat-table th{text-align:left;padding:8px 10px;color:var(--text3);font-weight:500;font-size:11px;text-transform:uppercase;letter-spacing:0.6px;border-bottom:1px solid var(--border)}
+.cat-table td{padding:10px;border-bottom:1px solid rgba(255,255,255,.04);vertical-align:middle}
+.cat-table tr:last-child td{border-bottom:none}
+.cat-table tr:hover td{background:var(--surface2)}
+.cat-name{font-weight:500;color:var(--text);font-size:13px}
+.bar-inline{height:6px;border-radius:3px;background:linear-gradient(90deg,var(--blue),var(--teal));margin-top:4px;transition:width .6s var(--ease)}
+.num-cell{font-family:var(--mono);font-size:12px;color:var(--text2);text-align:right}
+.ratio-pill{font-size:11px;padding:2px 7px;border-radius:10px;font-family:var(--mono)}
+
+/* ── INSIGHT CALLOUT ── */
+.insight-box{background:rgba(10,132,255,.07);border:1px solid rgba(10,132,255,.2);border-radius:12px;padding:14px 16px;margin-top:1rem;font-size:13px;color:var(--text2);line-height:1.6}
+.insight-box strong{color:var(--blue)}
+
+/* ── TAG CHART ── */
+.cat-filter{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:1rem}
+.cat-filter-btn{padding:5px 12px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text3);font-family:var(--font);font-size:12px;cursor:pointer;transition:all .2s}
+.cat-filter-btn:hover{border-color:var(--border2);color:var(--text2)}
+.cat-filter-btn.active{background:rgba(10,132,255,.15);border-color:rgba(10,132,255,.4);color:var(--blue)}
+
+/* ── LOADING ── */
+.loading{display:flex;align-items:center;justify-content:center;height:200px;color:var(--text3);font-size:13px;gap:10px}
+.spinner{width:18px;height:18px;border:2px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite}
+
+/* ── ANIMATIONS ── */
+@keyframes fadeUp{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+
+/* ── TOOLTIP ── */
+.custom-tooltip{position:fixed;background:var(--surface2);border:1px solid var(--border2);border-radius:10px;padding:10px 14px;font-size:12px;color:var(--text);pointer-events:none;z-index:999;opacity:0;transition:opacity .15s;box-shadow:0 8px 32px rgba(0,0,0,.4);max-width:200px}
+.custom-tooltip.visible{opacity:1}
+
+@media(max-width:700px){
+  .charts-wrap{grid-template-columns:1fr}
+  .chart-card.wide{grid-column:1}
+  .hero{padding:2rem 1rem 1rem}
+  .stats-row,.country-section,.charts-wrap{padding:0 1rem}
+  nav{padding:0 1rem}
+}
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="viral_check.html" class="nav-logo">
+    <div class="nav-logo-box">VC</div>
+    <div class="nav-brand">Viral<span>Check</span></div>
+  </a>
+  <div class="nav-sep"></div>
+  <div class="nav-title">Insights Dashboard</div>
+  <a href="viral_check.html" class="nav-link">→ Analyse my video</a>
+</nav>
+
+<div class="hero">
+  <div class="hero-eyebrow">Data Explorer · 2026</div>
+  <h1>What actually makes a video <span>trend</span>?</h1>
+  <p>178,000 trending snapshots across 11 countries. Real data, real patterns. Pick a country and explore what separates viral content from everything else.</p>
+</div>
+
+<div class="country-section">
+  <div class="country-label">Select a country to explore</div>
+  <div class="country-grid" id="country-grid"></div>
+</div>
+
+<div class="stats-row" id="stats-row"></div>
+
+<div class="charts-wrap" id="charts-wrap">
+  <div style="grid-column:1/-1;display:flex;align-items:center;justify-content:center;height:300px;color:var(--text3);font-size:14px">
+    ← Select a country above to load insights
+  </div>
+</div>
+
+<div class="custom-tooltip" id="tooltip"></div>
+
+<script>
+const COUNTRY_FILES = {
+  US: 'US_Trending.csv', GB: 'GB_Trending.csv', CA: 'CA_Trending.csv', DE: 'DE_Trending.csv',
+  FR: 'FR_Trending.csv', IN: 'IN_Trending.csv', JP: 'JP_Trending.csv', KR: 'KR_Trending.csv',
+  MX: 'MX_Trending.csv', BR: 'BR_Trending.csv', RU: 'RU_Trending.csv'
+};
+
+const COUNTRY_META = {
+  US:{name:'United States',flag:'🇺🇸'}, GB:{name:'United Kingdom',flag:'🇬🇧'}, CA:{name:'Canada',flag:'🇨🇦'},
+  DE:{name:'Germany',flag:'🇩🇪'}, FR:{name:'France',flag:'🇫🇷'}, IN:{name:'India',flag:'🇮🇳'},
+  JP:{name:'Japan',flag:'🇯🇵'}, KR:{name:'South Korea',flag:'🇰🇷'}, MX:{name:'Mexico',flag:'🇲🇽'},
+  BR:{name:'Brazil',flag:'🇧🇷'}, RU:{name:'Russia',flag:'🇷🇺'}
+};
+
+const CATEGORY_MAP = {
+  1:'Film & Animation', 2:'Autos & Vehicles', 10:'Music', 15:'Pets & Animals', 17:'Sports',
+  19:'Travel & Events', 20:'Gaming', 22:'People & Blogs', 23:'Comedy', 24:'Entertainment',
+  25:'News & Politics', 26:'Howto & Style', 27:'Education', 28:'Science & Technology', 29:'Nonprofits & Activism'
+};
+
+const cache = new Map();
+const charts = {};
+let currentCountry = null;
+let currentMetrics = null;
+
+if (location.protocol === 'file:') {
+  document.getElementById('charts-wrap').innerHTML = `
+    <div class="chart-card wide">
+      <div class="chart-header">
+        <div>
+          <div class="chart-title">Local file mode detected</div>
+          <div class="chart-subtitle">Browsers usually block CSV loading from file://. Serve this folder locally.</div>
+        </div>
+        <div class="chart-badge badge-red">fetch blocked</div>
+      </div>
+      <div class="insight-box"><strong>Run:</strong> <code>python -m http.server 8000</code> then open <code>http://localhost:8000/real_csv_dashboard_exact.html</code>.</div>
+    </div>`;
+}
+
+function formatNumber(v){ return new Intl.NumberFormat('en',{maximumFractionDigits:0}).format(Number(v)||0); }
+function formatCompact(v){ return new Intl.NumberFormat('en',{notation:'compact',maximumFractionDigits:1}).format(Number(v)||0); }
+function formatPercent(v){ return `${(Number(v)||0).toFixed(2)}%`; }
+function average(arr){ return arr.length ? arr.reduce((a,b)=>a+b,0)/arr.length : 0; }
+function median(arr){ if(!arr.length) return 0; const s=[...arr].sort((a,b)=>a-b); const m=Math.floor(s.length/2); return s.length%2?s[m]:(s[m-1]+s[m])/2; }
+function esc(s){ return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function destroyCharts(){ Object.values(charts).forEach(c => c && c.destroy && c.destroy()); for(const k in charts) delete charts[k]; }
+
+async function parseCsv(country){
+  if (cache.has(country)) return cache.get(country);
+  const res = await fetch(COUNTRY_FILES[country]);
+  if (!res.ok) throw new Error(`Could not load ${COUNTRY_FILES[country]}`);
+  const text = await res.text();
+  const rows = csvToObjects(text);
+  cache.set(country, rows);
+  return rows;
+}
+
+function csvToObjects(text){
+  const rows=[]; let row=[]; let cell=''; let q=false;
+  for(let i=0;i<text.length;i++){
+    const ch=text[i], next=text[i+1];
+    if(q){
+      if(ch==='"' && next==='"'){ cell+='"'; i++; }
+      else if(ch==='"'){ q=false; }
+      else cell+=ch;
+    } else {
+      if(ch==='"') q=true;
+      else if(ch===','){ row.push(cell); cell=''; }
+      else if(ch==='\n'){ row.push(cell); rows.push(row); row=[]; cell=''; }
+      else if(ch==='\r'){}
+      else cell+=ch;
+    }
+  }
+  if(cell.length || row.length){ row.push(cell); rows.push(row); }
+  const headers = rows.shift().map(h=>h.trim());
+  return rows.filter(r=>r.length && r.some(v=>String(v).trim()!=='')).map(r=>{
+    const obj={};
+    headers.forEach((h,i)=> obj[h]= r[i] ?? '');
+    return obj;
+  });
+}
+
+function computeMetrics(rows){
+  const cleaned = rows.filter(r => r && r.video_id && r.title && Number.isFinite(+r.views));
+  const views = cleaned.map(r => +r.views || 0);
+  const likes = cleaned.map(r => +r.likes || 0);
+  const videoIds = new Set(cleaned.map(r => r.video_id));
+
+  const categories = new Map();
+  const hourHeatmap = {};
+  const titleMap = new Map();
+  const channelMap = new Map();
+  const tagBuckets = new Map();
+  const likeRatioDist = {'0-1%':0,'1-3%':0,'3-5%':0,'5-10%':0,'10%+':0};
+  const viewsDist = {'<100K':0,'100K-500K':0,'500K-1M':0,'1M-5M':0,'5M+':0};
+
+  for(let h=0; h<24; h++) hourHeatmap[h] = {avg_views:0, count:0, _sum:0};
+
+  cleaned.forEach(r => {
+    const view = +r.views || 0;
+    const like = +r.likes || 0;
+    const cat = CATEGORY_MAP[+r.category_id] || `Category ${r.category_id}`;
+    const ratio = view > 0 ? (like / view) * 100 : 0;
+
+    if(!categories.has(cat)) categories.set(cat, {count:0, sumViews:0, sumLikes:0, sumRatio:0, max_views:0});
+    const c = categories.get(cat);
+    c.count += 1; c.sumViews += view; c.sumLikes += like; c.sumRatio += ratio; c.max_views = Math.max(c.max_views, view);
+
+    const titleLength = Math.max(1, Math.min(20, String(r.title).trim().split(/\s+/).filter(Boolean).length));
+    if(!titleMap.has(titleLength)) titleMap.set(titleLength, {count:0, sumViews:0});
+    titleMap.get(titleLength).count += 1; titleMap.get(titleLength).sumViews += view;
+
+    const dt = new Date(r.publish_time);
+    if(!Number.isNaN(dt.getTime())){
+      const hr = dt.getUTCHours();
+      hourHeatmap[hr].count += 1;
+      hourHeatmap[hr]._sum += view;
+    }
+
+    const ch = (r.channel_title || 'Unknown').trim();
+    channelMap.set(ch, (channelMap.get(ch) || 0) + 1);
+
+    const tags = String(r.tags || '').trim();
+    if(tags && tags !== '[none]'){
+      tags.split('|').map(t=>t.trim().toLowerCase()).filter(Boolean).forEach(tag => {
+        if(!tagBuckets.has(cat)) tagBuckets.set(cat, new Map());
+        const bucket = tagBuckets.get(cat);
+        if(!bucket.has(tag)) bucket.set(tag, {count:0, sumViews:0});
+        bucket.get(tag).count += 1; bucket.get(tag).sumViews += view;
+      });
+    }
+
+    if(ratio < 1) likeRatioDist['0-1%'] += 1;
+    else if(ratio < 3) likeRatioDist['1-3%'] += 1;
+    else if(ratio < 5) likeRatioDist['3-5%'] += 1;
+    else if(ratio < 10) likeRatioDist['5-10%'] += 1;
+    else likeRatioDist['10%+'] += 1;
+
+    if(view < 100000) viewsDist['<100K'] += 1;
+    else if(view < 500000) viewsDist['100K-500K'] += 1;
+    else if(view < 1000000) viewsDist['500K-1M'] += 1;
+    else if(view < 5000000) viewsDist['1M-5M'] += 1;
+    else viewsDist['5M+'] += 1;
+  });
+
+  Object.keys(hourHeatmap).forEach(h => {
+    hourHeatmap[h].avg_views = hourHeatmap[h].count ? hourHeatmap[h]._sum / hourHeatmap[h].count : 0;
+    delete hourHeatmap[h]._sum;
+  });
+
+  const categoriesObj = {};
+  [...categories.entries()].forEach(([name, d]) => categoriesObj[name] = {
+    count: d.count,
+    avg_views: d.sumViews / d.count,
+    avg_likes: d.sumLikes / d.count,
+    avg_like_ratio: d.sumRatio / d.count,
+    max_views: d.max_views
+  });
+
+  const topTagsByCategory = {};
+  [...tagBuckets.entries()].forEach(([cat, bucket]) => {
+    topTagsByCategory[cat] = [...bucket.entries()]
+      .filter(([,v]) => v.count >= 3)
+      .map(([tag,v]) => ({tag, avg_views: v.sumViews / v.count, count: v.count}))
+      .sort((a,b) => b.avg_views - a.avg_views)
+      .slice(0,12);
+  });
+
+  const titleLengthVsViews = [...titleMap.entries()]
+    .map(([length,v]) => ({length:+length, avg_views:v.sumViews/v.count, count:v.count}))
+    .sort((a,b) => a.length-b.length);
+
+  const topChannels = [...channelMap.entries()]
+    .map(([channel, appearances]) => ({channel, appearances}))
+    .sort((a,b) => b.appearances-a.appearances)
+    .slice(0,10);
+
+  return {
+    overall: {
+      total_videos: videoIds.size,
+      avg_views: average(views),
+      avg_likes: average(likes),
+      avg_like_ratio: average(cleaned.map(r => (+r.views||0) > 0 ? ((+r.likes||0)/(+r.views||0))*100 : 0)),
+      max_views: Math.max(...views, 0)
+    },
+    categories: categoriesObj,
+    hour_heatmap: hourHeatmap,
+    top_tags_by_category: topTagsByCategory,
+    like_ratio_dist: likeRatioDist,
+    views_dist: viewsDist,
+    title_length_vs_views: titleLengthVsViews,
+    top_channels: topChannels
+  };
+}
+
+function buildCountryButtons(){
+  const grid = document.getElementById('country-grid');
+  grid.innerHTML = Object.entries(COUNTRY_META).map(([code, meta]) => `
+    <button class="country-btn" data-country="${code}">
+      <span class="country-flag">${meta.flag}</span>
+      <span>${meta.name}</span>
+    </button>
+  `).join('');
+  grid.addEventListener('click', (e) => {
+    const btn = e.target.closest('.country-btn');
+    if(btn) selectCountry(btn.dataset.country);
+  });
+}
+
+async function selectCountry(country){
+  currentCountry = country;
+  document.querySelectorAll('.country-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.country === country));
+  document.getElementById('stats-row').innerHTML = loadingCardRow();
+  document.getElementById('charts-wrap').innerHTML = loadingCharts();
+  try {
+    const rows = await parseCsv(country);
+    currentMetrics = computeMetrics(rows);
+    renderDashboard(country, currentMetrics);
+  } catch (err) {
+    document.getElementById('charts-wrap').innerHTML = `
+      <div class="chart-card wide">
+        <div class="chart-header"><div><div class="chart-title">Could not load ${COUNTRY_FILES[country]}</div><div class="chart-subtitle">${esc(err.message)}</div></div><div class="chart-badge badge-red">load error</div></div>
+        <div class="insight-box"><strong>Check:</strong> the HTML and CSV files must sit in the same folder and be served via a local server.</div>
+      </div>`;
+      document.getElementById('stats-row').innerHTML = '';
+  }
+}
+
+function loadingCardRow(){
+  return Array.from({length:5}, ()=>`<div class="stat-card"><div class="loading"><div class="spinner"></div><span>Computing…</span></div></div>`).join('');
+}
+function loadingCharts(){
+  return `<div class="chart-card wide"><div class="loading"><div class="spinner"></div><span>Loading country dataset and calculating insights…</span></div></div>`;
+}
+
+function renderDashboard(country, data){
+  destroyCharts();
+  renderStats(data.overall);
+  const categories = Object.entries(data.categories).sort((a,b)=>b[1].avg_views-a[1].avg_views);
+  const bestCategory = categories[0];
+  const bestHour = Object.entries(data.hour_heatmap).sort((a,b)=>b[1].avg_views-a[1].avg_views)[0];
+  const bestTitle = [...data.title_length_vs_views].sort((a,b)=>b.avg_views-a.avg_views)[0];
+  const topChannel = data.top_channels[0];
+
+  document.getElementById('charts-wrap').innerHTML = `
+    <div class="chart-card wide">
+      <div class="chart-header">
+        <div>
+          <div class="chart-title">Category performance ranking</div>
+          <div class="chart-subtitle">Average views, likes, and like ratio by category derived from the selected CSV.</div>
+        </div>
+        <div class="chart-badge badge-blue">live from CSV</div>
+      </div>
+      <table class="cat-table">
+        <thead>
+          <tr><th>Category</th><th class="num-cell">Videos</th><th class="num-cell">Avg views</th><th class="num-cell">Avg likes</th><th class="num-cell">Like ratio</th></tr>
+        </thead>
+        <tbody>
+          ${categories.slice(0,10).map(([name, stats]) => `
+            <tr>
+              <td>
+                <div class="cat-name">${esc(name)}</div>
+                <div class="bar-inline" style="width:${(stats.avg_views / bestCategory[1].avg_views) * 100}%"></div>
+              </td>
+              <td class="num-cell">${formatNumber(stats.count)}</td>
+              <td class="num-cell">${formatCompact(stats.avg_views)}</td>
+              <td class="num-cell">${formatCompact(stats.avg_likes)}</td>
+              <td class="num-cell"><span class="ratio-pill badge-blue">${formatPercent(stats.avg_like_ratio)}</span></td>
+            </tr>`).join('')}
+        </tbody>
+      </table>
+      <div class="insight-box"><strong>${esc(bestCategory[0])}</strong> leads this market on average views. For <strong>${COUNTRY_META[country].name}</strong>, the strongest title bucket is <strong>${bestTitle.length} words</strong> and the strongest publish window is <strong>${String(bestHour[0]).padStart(2,'0')}:00 UTC</strong>.</div>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-header"><div><div class="chart-title">Views distribution</div><div class="chart-subtitle">How trending rows are spread by total views.</div></div><div class="chart-badge badge-green">range mix</div></div>
+      <div class="chart-canvas-wrap h240"><canvas id="viewsDistChart"></canvas></div>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-header"><div><div class="chart-title">Like ratio distribution</div><div class="chart-subtitle">Likes divided by views, grouped into broad bands.</div></div><div class="chart-badge badge-purple">engagement</div></div>
+      <div class="chart-canvas-wrap h240"><canvas id="likeRatioChart"></canvas></div>
+    </div>
+
+    <div class="chart-card wide">
+      <div class="chart-header"><div><div class="chart-title">Publish hour vs average views</div><div class="chart-subtitle">Average views by publish hour extracted from <code>publish_time</code>.</div></div><div class="chart-badge badge-amber">timing</div></div>
+      <div class="chart-canvas-wrap h280"><canvas id="hourChart"></canvas></div>
+    </div>
+
+    <div class="chart-card wide">
+      <div class="chart-header"><div><div class="chart-title">Title length vs average views</div><div class="chart-subtitle">Word count buckets derived directly from the raw title field.</div></div><div class="chart-badge badge-red">copywriting</div></div>
+      <div class="chart-canvas-wrap h280"><canvas id="titleChart"></canvas></div>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-header"><div><div class="chart-title">Top recurring channels</div><div class="chart-subtitle">Channels with the most trending appearances in this country file.</div></div><div class="chart-badge badge-blue">repeat winners</div></div>
+      <div class="chart-canvas-wrap h320"><canvas id="channelChart"></canvas></div>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-header"><div><div class="chart-title">Top tags by category</div><div class="chart-subtitle">Filtered to tags with at least 3 uses in the selected category.</div></div><div class="chart-badge badge-green">metadata</div></div>
+      <div class="cat-filter" id="cat-filter"></div>
+      <div class="chart-canvas-wrap h320"><canvas id="tagChart"></canvas></div>
+    </div>`;
+
+  renderViewsDist(data.views_dist);
+  renderLikeRatio(data.like_ratio_dist);
+  renderHourChart(data.hour_heatmap);
+  renderTitleChart(data.title_length_vs_views);
+  renderChannelChart(data.top_channels);
+  renderTagSection(data.top_tags_by_category, categories.map(([name])=>name));
+}
+
+function renderStats(overall){
+  const stats = [
+    {icon:'🎬', label:'Unique videos', val:formatNumber(overall.total_videos), sub:'Distinct video IDs in this country file'},
+    {icon:'👁️', label:'Average views', val:formatCompact(overall.avg_views), sub:`Mean across all trending rows`},
+    {icon:'❤️', label:'Average likes', val:formatCompact(overall.avg_likes), sub:'Raw likes mean'},
+    {icon:'⚡', label:'Average like ratio', val:formatPercent(overall.avg_like_ratio), sub:'Likes as a share of views'},
+    {icon:'🚀', label:'Peak views', val:formatCompact(overall.max_views), sub:'Highest single-row view count'}
+  ];
+  document.getElementById('stats-row').innerHTML = stats.map(s => `
+    <div class="stat-card">
+      <div class="stat-icon">${s.icon}</div>
+      <div class="stat-label">${s.label}</div>
+      <div class="stat-val">${s.val}</div>
+      <div class="stat-sub">${s.sub}</div>
+    </div>`).join('');
+}
+
+function commonChartOptions(){
+  return {
+    responsive:true,
+    maintainAspectRatio:false,
+    plugins:{ legend:{display:false}, tooltip:{backgroundColor:'#1e1e1e', borderColor:'#333', borderWidth:1, titleColor:'#f0f0f0', bodyColor:'#aaa'} },
+    scales:{
+      x:{ ticks:{color:'#aaa', font:{family:'DM Sans'}}, grid:{color:'rgba(255,255,255,.05)'} },
+      y:{ ticks:{color:'#aaa', font:{family:'DM Sans'}}, grid:{color:'rgba(255,255,255,.05)'} }
+    }
+  };
+}
+
+function renderViewsDist(dist){
+  charts.viewsDist = new Chart(document.getElementById('viewsDistChart'), {
+    type:'bar',
+    data:{ labels:Object.keys(dist), datasets:[{ data:Object.values(dist), backgroundColor:'rgba(48,209,88,.75)', borderRadius:8 }] },
+    options: commonChartOptions()
+  });
+}
+function renderLikeRatio(dist){
+  charts.likeRatio = new Chart(document.getElementById('likeRatioChart'), {
+    type:'doughnut',
+    data:{ labels:Object.keys(dist), datasets:[{ data:Object.values(dist), backgroundColor:['rgba(10,132,255,.75)','rgba(90,200,250,.75)','rgba(191,90,242,.75)','rgba(255,214,10,.75)','rgba(255,59,48,.75)'], borderColor:'#141414', borderWidth:2 }] },
+    options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{labels:{color:'#aaa', font:{family:'DM Sans'}}}, tooltip:{backgroundColor:'#1e1e1e', borderColor:'#333', borderWidth:1, titleColor:'#f0f0f0', bodyColor:'#aaa'} } }
+  });
+}
+function renderHourChart(hourMap){
+  const labels = Object.keys(hourMap).map(h => `${String(h).padStart(2,'0')}:00`);
+  const values = Object.values(hourMap).map(v => Math.round(v.avg_views));
+  charts.hour = new Chart(document.getElementById('hourChart'), {
+    type:'line',
+    data:{ labels, datasets:[{ data:values, borderColor:'rgba(255,214,10,1)', backgroundColor:'rgba(255,214,10,.12)', fill:true, tension:.3, pointRadius:2 }] },
+    options: commonChartOptions()
+  });
+}
+function renderTitleChart(data){
+  charts.title = new Chart(document.getElementById('titleChart'), {
+    type:'bar',
+    data:{ labels:data.map(d => d.length), datasets:[{ data:data.map(d => Math.round(d.avg_views)), backgroundColor:'rgba(255,59,48,.72)', borderRadius:8 }] },
+    options: commonChartOptions()
+  });
+}
+function renderChannelChart(data){
+  charts.channel = new Chart(document.getElementById('channelChart'), {
+    type:'bar',
+    data:{ labels:data.map(d => d.channel), datasets:[{ data:data.map(d => d.appearances), backgroundColor:'rgba(10,132,255,.75)', borderRadius:8 }] },
+    options:{ ...commonChartOptions(), indexAxis:'y' }
+  });
+}
+function renderTagSection(topTagsByCategory, orderedCategories){
+  const categories = orderedCategories.filter(cat => (topTagsByCategory[cat] || []).length);
+  const filter = document.getElementById('cat-filter');
+  filter.innerHTML = categories.slice(0,8).map((cat, i) => `<button class="cat-filter-btn ${i===0?'active':''}" data-cat="${esc(cat)}">${esc(cat)}</button>`).join('');
+  const first = categories[0];
+  const draw = (cat) => {
+    const tags = topTagsByCategory[cat] || [];
+    if (charts.tag) charts.tag.destroy();
+    charts.tag = new Chart(document.getElementById('tagChart'), {
+      type:'bar',
+      data:{ labels:tags.map(t => t.tag), datasets:[{ data:tags.map(t => Math.round(t.avg_views)), backgroundColor:'rgba(90,200,250,.78)', borderRadius:8 }] },
+      options:{ ...commonChartOptions(), indexAxis:'y' }
+    });
+  };
+  if(first) draw(first);
+  filter.addEventListener('click', (e) => {
+    const btn = e.target.closest('.cat-filter-btn');
+    if(!btn) return;
+    filter.querySelectorAll('.cat-filter-btn').forEach(b => b.classList.toggle('active', b === btn));
+    draw(btn.dataset.cat);
+  });
+}
+
+buildCountryButtons();
+if (location.protocol !== 'file:') selectCountry('US');
+</script>
+</body>
+</html>
